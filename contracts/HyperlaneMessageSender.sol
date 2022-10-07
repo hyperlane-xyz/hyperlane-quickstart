@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.9;
+
+// Uncomment this line to use console.log
+// import "hardhat/console.sol";
+
+import "@hyperlane-xyz/core/interfaces/IOutbox.sol";
+
+contract HyperlaneMessageSender {
+    IOutbox outbox;
+
+    constructor(address _outbox) {
+        outbox = IOutbox(_outbox);
+    }
+
+    function sendString(
+        uint32 _destinationDomain,
+        bytes32 _recipient,
+        string calldata _message
+    ) external {
+        outbox.dispatch(_destinationDomain, _recipient, bytes(_message));
+    }
+}

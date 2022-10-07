@@ -365,6 +365,15 @@
   resolved "https://registry.yarnpkg.com/@hyperlane-xyz/celo-ethers-provider/-/celo-ethers-provider-0.1.1.tgz#596dbf180cd476781e8d3bdd9ba595e7438563f0"
   integrity sha512-Kl+qV4J+5PGwFN+dCQ+bu42y5FXkvQKDuZVLRKehk/L6/Otj+UO0PL+U532Y3/RaWH0xtpsImONfL7+edzOFtw==
 
+"@hyperlane-xyz/core@0.5.0-alpha0":
+  version "0.5.0-alpha0"
+  resolved "https://registry.yarnpkg.com/@hyperlane-xyz/core/-/core-0.5.0-alpha0.tgz#84577cee2110793a511d61f5464fe440e5effa3c"
+  integrity sha512-z+3mAcrEB3C+sxr/usDpq0SfMP5kgE704kPZ5Osc81e6+g7bKvsz2SVtVSngbxF1bmxIHcsqlBezy1SjJ/2VeA==
+  dependencies:
+    "@hyperlane-xyz/utils" "0.5.0-beta0"
+    "@openzeppelin/contracts" "^4.6.0"
+    "@openzeppelin/contracts-upgradeable" "^4.6.0"
+
 "@hyperlane-xyz/core@0.5.0-beta0":
   version "0.5.0-beta0"
   resolved "https://registry.yarnpkg.com/@hyperlane-xyz/core/-/core-0.5.0-beta0.tgz#6da1b4162080c176fd0334379e7a089d12dcf644"
