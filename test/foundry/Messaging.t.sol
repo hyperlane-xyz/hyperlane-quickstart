@@ -6,9 +6,7 @@ import "@hyperlane-xyz/core/contracts/mock/MockOutbox.sol";
 import "@hyperlane-xyz/core/contracts/mock/MockInbox.sol";
 import "@hyperlane-xyz/core/interfaces/IInbox.sol";
 import "@hyperlane-xyz/core/interfaces/IOutbox.sol";
-import "@hyperlane-xyz/core/contracts/AbacusConnectionManager.sol";
 import {TypeCasts} from "@hyperlane-xyz/core/contracts/libs/TypeCasts.sol";
-import "@hyperlane-xyz/core/contracts/test/TestRecipient.sol";
 
 import "../../contracts/HyperlaneMessageSender.sol";
 import "../../contracts/HyperlaneMessageReceiver.sol";
