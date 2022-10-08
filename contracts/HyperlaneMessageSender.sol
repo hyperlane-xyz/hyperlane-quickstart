@@ -8,6 +8,7 @@ import "@hyperlane-xyz/core/interfaces/IOutbox.sol";
 
 contract HyperlaneMessageSender {
     IOutbox outbox;
+    event SentMessage(uint32 destinationDomain, bytes32 recipient, string message);
 
     constructor(address _outbox) {
         outbox = IOutbox(_outbox);
@@ -19,5 +20,6 @@ contract HyperlaneMessageSender {
         string calldata _message
     ) external {
         outbox.dispatch(_destinationDomain, _recipient, bytes(_message));
+        emit SentMessage(_destinationDomain, _recipient, _message);
     }
 }

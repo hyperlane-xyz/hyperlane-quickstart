@@ -11,16 +11,19 @@ contract HyperlaneMessageReceiver {
     bytes32 public lastSender;
     string public lastMessage;
 
+    event ReceivedMessage(uint32 origin, bytes32 sender, bytes message);
+
     constructor(address _inbox) {
         inbox = IInbox(_inbox);
     }
 
     function handle(
-        uint32,
+        uint32 _origin,
         bytes32 _sender,
-        bytes calldata _messageBody
+        bytes calldata _message
     ) external {
       lastSender = _sender;
-      lastMessage = string(_messageBody);
+      lastMessage = string(_message);
+      emit ReceivedMessage(_origin, _sender, _message);
     }
 }
