@@ -9,10 +9,20 @@ import { utils } from "@hyperlane-xyz/utils";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomiclabs/hardhat-etherscan";
 import { environments } from "@hyperlane-xyz/sdk/dist/consts/environments";
+import { IInterchainAccountRouter__factory } from "./typechain-types";
 
-const accounts = [
-  "PRIVATE_KEY",
-];
+
+// Use mnemonic ...
+// const accounts = {
+//   mnemonic: "test test test test test test test test test test test junk",
+//   path: "m/44'/60'/0'/0",
+//   initialIndex: 0,
+//   count: 20,
+//   passphrase: "",
+// }
+// ... or a direct private key
+const accounts = ["YOUR PRIVATE KEY"]
+
 const config: HardhatUserConfig = {
   solidity: "0.8.17",
   networks: objMap(chainConnectionConfigs, (_chain, cc) => ({
@@ -54,6 +64,8 @@ const INTERCHAIN_ACCOUNT_ROUTER_ABI = [
 const TESTRECIPIENT_ABI = [
   "function fooBar(uint256 amount, string calldata message)",
 ];
+
+const INTERCHAIN_ACCOUNT_ROUTER = "0x28DB114018576cF6c9A523C17903455A161d18C4";
 
 task("send-message", "sends a message")
   .addParam(
@@ -261,6 +273,124 @@ task(
       .getAddressUrl(taskArgs.receiver);
     console.log(
       `Check out the explorer page for receiver ${recipientUrl}#events`
+    );
+  });
+
+task(
+  "deploy-owner",
+  "deploys the Owner contract that can own things cross-chain"
+).setAction(async (taskArgs, hre) => {
+  console.log(`Deploying Owner on ${hre.network.name}`);
+  const factory = await hre.ethers.getContractFactory("Owner");
+  const contract = await factory.deploy(INTERCHAIN_ACCOUNT_ROUTER);
+  await contract.deployTransaction.wait();
+
+  console.log(
+    `Deployed Owner to ${contract.address} on ${hre.network.name} with transaction ${contract.deployTransaction.hash}`
+  );
+  console.log(`You can verify the contracts with:`);
+  console.log(
+    `$ yarn hardhat verify --network ${hre.network.name} ${contract.address} ${INTERCHAIN_ACCOUNT_ROUTER}`
+  );
+});
+
+task(
+  "get-ica-address",
+  "Gets the ICA account address for an address on a given chain"
+)
+  .addParam(
+    "address",
+    "The address on the origin chain",
+    undefined,
+    types.string,
+    false
+  )
+  .setAction(async (taskArgs, hre) => {
+    const router = await IInterchainAccountRouter__factory.connect(
+      INTERCHAIN_ACCOUNT_ROUTER,
+      hre.ethers.getDefaultProvider()
+    );
+    const originDomain = ChainNameToDomainId[hre.network.name];
+    const ica = await router.getInterchainAccount(
+      originDomain,
+      taskArgs.address
+    );
+    console.info(
+      `The ICA of ${taskArgs.address} on ${hre.network.name} (${originDomain}) is ${ica}`
+    );
+  });
+
+task(
+  "deploy-ownee",
+  "deploys the Ownee contract (that has no cross-chain-specific code)"
+)
+  .addParam("owner", "address of the owner", undefined, types.string, false)
+  .setAction(async (taskArgs, hre) => {
+    console.log(`Deploying Ownee on ${hre.network.name}`);
+    const factory = await hre.ethers.getContractFactory("Ownee");
+    const contract = await factory.deploy(taskArgs.owner);
+    await contract.deployTransaction.wait();
+
+    console.log(
+      `Deployed Ownee to ${contract.address} on ${hre.network.name} with transaction ${contract.deployTransaction.hash}`
+    );
+    console.log(`You can verify the contracts with:`);
+    console.log(
+      `$ yarn hardhat verify --network ${hre.network.name} ${contract.address} ${taskArgs.ownee}`
+    );
+  });
+
+task(
+  "set-remote-fee",
+  "Allows an Owner contract to set the fee on a remote Ownee contract"
+)
+  .addParam(
+    "owner",
+    "Owner address on the origin chain",
+    undefined,
+    types.string,
+    false
+  )
+  .addParam(
+    "ownee",
+    "Ownee address on the remote chain",
+    undefined,
+    types.string,
+    false
+  )
+  .addParam(
+    "remote",
+    "The name of the remote chain on which the Ownee lives",
+    undefined,
+    types.string,
+    false
+  )
+  .addParam("newFee", "the new fee that should be set", 42, types.float)
+  .setAction(async function (taskArgs, hre) {
+    const factory = await hre.ethers.getContractFactory("Owner");
+    const owner = await factory.attach(taskArgs.owner);
+    const destinationDomain = ChainNameToDomainId[taskArgs.remote];
+    const tx = await owner.setRemoteFee(
+      destinationDomain,
+      taskArgs.ownee,
+      taskArgs.newFee
+    );
+    await tx.wait();
+
+    console.log(
+      `Set the fee on Ownee at ${taskArgs.ownee} on ${taskArgs.remote} at transaction ${tx.hash}.`
+    );
+  });
+
+task("get-fee", "Reads the fee of an Ownee")
+  .addParam("ownee", "The address of the Ownee", undefined, types.string, false)
+  .setAction(async (taskArgs, hre) => {
+    const factory = await hre.ethers.getContractFactory("Ownee");
+    const ownee = factory.attach(taskArgs.ownee);
+
+    const fee = await ownee.fee();
+    console.info(
+      `The current set fee of ${taskArgs.ownee} on ${hre.network.name} is ${fee}`
     );
   });
 
