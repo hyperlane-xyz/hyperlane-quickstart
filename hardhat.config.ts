@@ -1,16 +1,19 @@
-import { HardhatUserConfig, task, types } from "hardhat/config";
 import {
   chainConnectionConfigs,
+  ChainName,
   ChainNameToDomainId,
+  hyperlaneCoreAddresses as HyperlaneCoreAddresses,
   MultiProvider,
   objMap,
 } from "@hyperlane-xyz/sdk";
 import { utils } from "@hyperlane-xyz/utils";
+import { InterchainAccountRouter__factory } from "@hyperlane-xyz/core";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomiclabs/hardhat-etherscan";
-import { environments } from "@hyperlane-xyz/sdk/dist/consts/environments";
-import { IInterchainAccountRouter__factory } from "./typechain-types";
+import { HardhatUserConfig, task, types } from "hardhat/config";
 
+// TODO loosen hyperlaneCoreAddresses type in SDK to work with ChainName keys
+const hyperlaneCoreAddresses = HyperlaneCoreAddresses as Record<string, any>;
 
 // Use mnemonic ...
 // const accounts = {
@@ -21,7 +24,7 @@ import { IInterchainAccountRouter__factory } from "./typechain-types";
 //   passphrase: "",
 // }
 // ... or a direct private key
-const accounts = ["YOUR PRIVATE KEY"]
+const accounts = ["YOUR PRIVATE KEY"];
 
 const config: HardhatUserConfig = {
   solidity: "0.8.17",
@@ -37,21 +40,12 @@ const config: HardhatUserConfig = {
       // goerli: "",
     },
   },
+  typechain: {
+    outDir: "./types",
+    target: "ethers-v5",
+    alwaysGenerateOverloads: false,
+  },
 };
-
-const hyperlaneCoreAddresses = objMap(
-  { ...environments.testnet2, ...environments.mainnet },
-  (_chain, addresses) => ({
-    outbox: addresses.outbox.proxy,
-    connectionManager: addresses.connectionManager,
-    interchainGasPaymaster: addresses.interchainGasPaymaster.proxy,
-    inboxes: objMap(
-      // @ts-ignore
-      addresses.inboxes,
-      (_remoteChain, inboxAddresses) => inboxAddresses.inbox.proxy
-    ),
-  })
-);
 
 const multiProvider = new MultiProvider(chainConnectionConfigs);
 
@@ -79,8 +73,8 @@ task("send-message", "sends a message")
   .setAction(async (taskArgs, hre) => {
     const signer = (await hre.ethers.getSigners())[0];
     const recipient = "0xBC3cFeca7Df5A45d61BC60E7898E63670e1654aE";
-    const origin = hre.network.name;
-    const remote = taskArgs.remote;
+    const origin = hre.network.name as ChainName;
+    const remote = taskArgs.remote as ChainName;
     const remoteDomain = ChainNameToDomainId[remote];
     const outboxC = hyperlaneCoreAddresses[origin].outbox;
 
@@ -122,7 +116,7 @@ task("make-ica-call", "Makes an Interchain Account call")
     const recipient = "0xBC3cFeca7Df5A45d61BC60E7898E63670e1654aE";
     const interchainAccountAddress =
       "0x28DB114018576cF6c9A523C17903455A161d18C4";
-    const remote = taskArgs.remote;
+    const remote = taskArgs.remote as ChainName;
     const remoteDomain = ChainNameToDomainId[remote];
     // Arbitrary values
     const amount = 42;
@@ -167,7 +161,7 @@ task(
   "deploys the HyperlaneMessageSender contract"
 ).setAction(async (taskArgs, hre) => {
   console.log(`Deploying HyperlaneMessageSender on ${hre.network.name}`);
-  const origin = hre.network.name;
+  const origin = hre.network.name as ChainName;
   const outbox = hyperlaneCoreAddresses[origin].outbox;
 
   const factory = await hre.ethers.getContractFactory("HyperlaneMessageSender");
@@ -197,7 +191,7 @@ task("deploy-message-receiver", "deploys the HyperlaneMessageReceiver contract")
     console.log(
       `Deploying HyperlaneMessageReceiver on ${hre.network.name} for messages from ${taskArgs.origin}`
     );
-    const remote = hre.network.name;
+    const remote = hre.network.name as ChainName;
     const inbox = hyperlaneCoreAddresses[remote].inboxes[taskArgs.origin];
 
     const factory = await hre.ethers.getContractFactory(
@@ -244,7 +238,7 @@ task(
   .addParam("message", "the message you want to send", "HelloWorld")
   .setAction(async (taskArgs, hre) => {
     const signer = (await hre.ethers.getSigners())[0];
-    const remote = taskArgs.remote;
+    const remote = taskArgs.remote as ChainName;
     const remoteDomain = ChainNameToDomainId[remote];
     const senderFactory = await hre.ethers.getContractFactory(
       "HyperlaneMessageSender"
@@ -279,7 +273,7 @@ task(
 task(
   "deploy-owner",
   "deploys the Owner contract that can own things cross-chain"
-).setAction(async (taskArgs, hre) => {
+).setAction(async (_, hre) => {
   console.log(`Deploying Owner on ${hre.network.name}`);
   const factory = await hre.ethers.getContractFactory("Owner");
   const contract = await factory.deploy(INTERCHAIN_ACCOUNT_ROUTER);
@@ -306,11 +300,11 @@ task(
     false
   )
   .setAction(async (taskArgs, hre) => {
-    const router = await IInterchainAccountRouter__factory.connect(
+    const router = await InterchainAccountRouter__factory.connect(
       INTERCHAIN_ACCOUNT_ROUTER,
       hre.ethers.getDefaultProvider()
     );
-    const originDomain = ChainNameToDomainId[hre.network.name];
+    const originDomain = ChainNameToDomainId[hre.network.name as ChainName];
     const ica = await router.getInterchainAccount(
       originDomain,
       taskArgs.address
@@ -369,7 +363,7 @@ task(
   .setAction(async function (taskArgs, hre) {
     const factory = await hre.ethers.getContractFactory("Owner");
     const owner = await factory.attach(taskArgs.owner);
-    const destinationDomain = ChainNameToDomainId[taskArgs.remote];
+    const destinationDomain = ChainNameToDomainId[taskArgs.remote as ChainName];
     const tx = await owner.setRemoteFee(
       destinationDomain,
       taskArgs.ownee,

@@ -1,6 +1,6 @@
 # Hyperlane Quickstart
 
-This repo contains example code that can be easily understood and modified. It should help you familiarize yourself with how to use the Hyperlane APIs to build your cross-chain application. Hyperlane offers two APIs: The lower-level Messaging API and the higher-level Accounts API. The Messaging API lets you send arbitrary bytes from a sender contract on the origin chain to a receiver contract on the destination chain. The accounts API lets senders specify abi-encoded Calls that can be executed from a senders Interchain Acconts (ICAs) on the destination chain. We built this quickstart with both Hardhat and Foundry in mind, so feel free to jump to the relevant sections.
+This repo contains example code that can be easily understood and modified. It should help you familiarize yourself with how to use the Hyperlane APIs to build your cross-chain application. Hyperlane offers two APIs: The lower-level Messaging API and the higher-level Accounts API. The Messaging API lets you send arbitrary bytes from a sender contract on the origin chain to a receiver contract on the destination chain. The accounts API lets senders specify abi-encoded Calls that can be executed from a sender's Interchain Account (ICA) on the destination chain. We built this quickstart with both Hardhat and Foundry in mind, so feel free to jump to the relevant sections.
 
 ## Setup
 
@@ -11,15 +11,22 @@ $ yarn install
 ## Hardhat
 
 We have both unit tests as well as hardhat tasks that show you how to develop on top of the Hyperlane APIs. To interact with the hardhat tasks on remote networks, you will need to add a private key configuration. Those keys need to have funds as well, we can recommend the Paradigm faucet at [https://faucet.paradigm.xyz](https://faucet.paradigm.xyz).
+
+When accounts are ready, start up building with hardhat, or see the `package.json` scripts for a set of common commands:
+
+```shell
+$ yarn hardhat compile
+```
+
 ### Direct Messaging API
 
 If you just want to get started with sending a message, you can use the `send-message` task to send a message to a pre-deployed `TestRecipient`:
 
 ```shell
-$ yarn hardhat send-message --network goerli --message "Your Message" 
+$ yarn hardhat send-message --network goerli --remote mumbai --message "Your Message"
 ```
 
-(Any hyperlane-supported chain-name can be used)
+(Any Hyperlane-supported chain name can be used)
 
 ### Deploy Sender and Receiver contracts
 
@@ -38,7 +45,7 @@ $ yarn hardhat send-message-via-HyperlaneMessageSender --sender "SENDER_ADDRESS"
 
 ### Accounts API
 
-If you do not want to build a custom de-/serialization format for your messages, you can also just use the Accounts API to make abi-encoded function calls from Interchain Accounts which are universal across chains for a given sender address on an origin chain. ICAs are identity proxy contracts which only accept calls from their designated owner on the origin chain and due to the awesomness of CREATE2 can actually be referenced before they are deployed! This allows contracts on the destination chain with no custom Hyperlane or cross-chain logic to be interacted with from a remote chain!
+If you do not want to build a custom serialization format for your messages, you can also just use the Accounts API to make abi-encoded function calls from Interchain Accounts which are universal across chains for a given sender address on an origin chain. ICAs are identity proxy contracts which only accept calls from their designated owner on the origin chain. Thanks to the awesomness of CREATE2, calls can be referenced before they are deployed! This allows contracts on the destination chain with no custom Hyperlane or cross-chain logic to be interacted with from a remote chain!
 
 To demonstrate this, look at this simple `Ownee` contract:
 
@@ -90,3 +97,5 @@ $ yarn hardhat get-fee --ownee "OWNEE_ADDRESS" --network mumbai
 ```
 
 ## Foundry
+
+_More details coming soon_
