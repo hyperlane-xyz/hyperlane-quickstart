@@ -2,6 +2,7 @@ import {
   chainConnectionConfigs,
   ChainName,
   ChainNameToDomainId,
+  DomainIdToChainName,
   hyperlaneCoreAddresses as HyperlaneCoreAddresses,
   MultiProvider,
   objMap,
@@ -59,7 +60,8 @@ const TESTRECIPIENT_ABI = [
   "function fooBar(uint256 amount, string calldata message)",
 ];
 
-const INTERCHAIN_ACCOUNT_ROUTER = "0x28DB114018576cF6c9A523C17903455A161d18C4";
+const INTERCHAIN_ACCOUNT_ROUTER = "0xc011170d9795a7a2d065E384EAd1CA3394A7d35E";
+const INTERCHAIN_QUERY_ROUTER = "0x6141e7E7fA2c1beB8be030B0a7DB4b8A10c7c3cd";
 
 task("send-message", "sends a message")
   .addParam(
@@ -91,7 +93,7 @@ task("send-message", "sends a message")
 
     await tx.wait();
     console.log(
-      `Send message at txHash ${tx.hash}. Check the debugger at https://explorer.hyperlane.xyz`
+      `Send message at txHash ${tx.hash}. Check the explorer at https://explorer.hyperlane.xyz`
     );
 
     const recipientUrl = await multiProvider
@@ -143,7 +145,7 @@ task("make-ica-call", "Makes an Interchain Account call")
       [recipient, calldata],
     ]);
     console.log(
-      `Sent message at txHash ${tx.hash}. Check the debugger at https://explorer.hyperlane.xyz`
+      `Sent message at txHash ${tx.hash}. Check the explorer at https://explorer.hyperlane.xyz`
     );
 
     await tx.wait();
@@ -257,7 +259,7 @@ task(
     await tx.wait();
 
     console.log(
-      `Send message at txHash ${tx.hash}. Check the debugger at https://explorer.hyperlane.xyz`
+      `Send message at txHash ${tx.hash}. Check the explorer at https://explorer.hyperlane.xyz`
     );
 
     await tx.wait();
@@ -388,4 +390,72 @@ task("get-fee", "Reads the fee of an Ownee")
     );
   });
 
+task(
+  "deploy-reader",
+  "deploys the OwnerReader contract that can owners of remote contracts"
+).setAction(async (_, hre) => {
+  console.log(`Deploying OwnerReader on ${hre.network.name}`);
+  const factory = await hre.ethers.getContractFactory("OwnerReader");
+  const contract = await factory.deploy(INTERCHAIN_QUERY_ROUTER);
+  await contract.deployTransaction.wait();
+
+  console.log(
+    `Deployed OwnerReader to ${contract.address} on ${hre.network.name} with transaction ${contract.deployTransaction.hash}`
+  );
+  console.log(`You can verify the contracts with:`);
+  console.log(
+    `$ yarn hardhat verify --network ${hre.network.name} ${contract.address} ${INTERCHAIN_QUERY_ROUTER}`
+  );
+});
+
+task("read-remote-owner", "Allows readRemoteOwner on a OwnerReader contract")
+  .addParam(
+    "reader",
+    "OwnerReader address on the origin chain",
+    undefined,
+    types.string,
+    false
+  )
+  .addParam(
+    "target",
+    "contract to read owner() on the remote chain",
+    undefined,
+    types.string,
+    false
+  )
+  .addParam(
+    "remote",
+    "The name of the remote chain on which the target lives",
+    undefined,
+    types.string,
+    false
+  )
+  .setAction(async function (taskArgs, hre) {
+    const factory = await hre.ethers.getContractFactory("OwnerReader");
+    const reader = await factory.attach(taskArgs.reader);
+    const destinationDomain = ChainNameToDomainId[taskArgs.remote as ChainName];
+
+    const tx = await reader.readRemoteOwner(destinationDomain, taskArgs.target);
+    await tx.wait();
+
+    console.log(
+      `Initiated the owner() query on the contract at ${taskArgs.target} on ${taskArgs.remote} at transaction ${tx.hash}.`
+    );
+  });
+
+task("get-query-result", "Reads the queryResult on an OwnerReader")
+  .addParam("reader", "OwnerReader address on the origin chain", undefined, types.string, false)
+  .setAction(async (taskArgs, hre) => {
+    const factory = await hre.ethers.getContractFactory("OwnerReader");
+    const reader = factory.attach(taskArgs.reader);
+
+    const lastOwner = await reader.lastOwner();
+    const lastTarget = await reader.lastTarget();
+    const lastQueryDomainNumber = await reader.lastDomain();
+    const lastQueryDomain = DomainIdToChainName[lastQueryDomainNumber]
+
+    console.info(
+      `The currently recorded query result on ${taskArgs.reader} is that the owner of ${lastTarget} is ${lastOwner} on ${lastQueryDomain}`
+    );
+  });
 export default config;

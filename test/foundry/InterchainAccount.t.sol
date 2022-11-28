@@ -29,14 +29,14 @@ contract InterchainAccountTest is Test {
     }
 
     function testSettingNewOwner(address newOwner) public {
-        require(newOwner != address(0x0));
-        owner.transferRemoteOwnership(remoteDomain, address(router), newOwner);
+        vm.assume(newOwner != address(0x0));
+        owner.transferRemoteOwnership(remoteDomain, address(ownee), newOwner);
         router.processNextPendingCall();
-        assertEq(ownee.owner(), address(router));
+        assertEq(ownee.owner(), newOwner);
     }
 
     function testSettingFee(uint256 newFee) public {
-        require(newFee != 0x0);
+        vm.assume(newFee != 0);
         owner.setRemoteFee(remoteDomain, address(ownee), newFee);
         router.processNextPendingCall();
         assertEq(ownee.fee(), newFee);

@@ -96,6 +96,59 @@ After a short bit, you should be able to see that the value was set, without nee
 $ yarn hardhat get-fee --ownee "OWNEE_ADDRESS" --network mumbai
 ```
 
+### Queries API
+
+What if you want to read instead of write across-chains. The Queries API is what you are looking for. The Queries API allows you to make a view call on another chain and get the result in a separate callback.
+
+To demonstrate this, lets look at this simple OwnerReader.contract:
+
+```solidity
+contract OwnerReader {
+    IInterchainQueryRouter router;
+
+    address lastTarget;
+    address lastOwner;
+
+    constructor(address _router) {
+        router = IInterchainQueryRouter(_router);
+    }
+
+    function readRemoteOwner(uint32 _destinationDomain, address target)
+        external
+    {
+        router.query(
+            _destinationDomain,
+            Call({to: target, data: abi.encodePacked(Ownable.owner.selector)}),
+            abi.encode(this.receiveQueryResult.selector, target)
+        );
+    }
+
+    function receiveQueryResult(address _target, address _owner) public {
+        lastOwner = _owner;
+        lastTarget = _target;
+    }
+}
+```
+
+We can deploy it with:
+
+```shell
+$ yarn hardhat deploy-reader --network goerli
+```
+
+Once deployed, you can have the contract make a query to read a remote owner. In this case, you can read the owner of a deployed `Ownee` contract above:
+
+```shell
+$ yarn hardhat read-remote-owner  --reader "READER_ADDRESS" --remote fuji --target "OWNEE_ADDRESS" --network goerli
+```
+
+You can then read the query result via:
+
+```shell
+$ yarn hardhat get-query-result --reader "READER_ADDRESS" --network goerli
+```
+
+
 ## Foundry
 
 _More details coming soon_
