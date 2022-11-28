@@ -1,6 +1,6 @@
 # Hyperlane Quickstart
 
-This repo contains example code that can be easily understood and modified. It should help you familiarize yourself with how to use the Hyperlane APIs to build your cross-chain application. Hyperlane offers two APIs: The lower-level Messaging API and the higher-level Accounts API. The Messaging API lets you send arbitrary bytes from a sender contract on the origin chain to a receiver contract on the destination chain. The accounts API lets senders specify abi-encoded Calls that can be executed from a sender's Interchain Account (ICA) on the destination chain. We built this quickstart with both Hardhat and Foundry in mind, so feel free to jump to the relevant sections.
+This repo contains example code that can be easily understood and modified. It should help you familiarize yourself with how to use the Hyperlane APIs to build your cross-chain application. Hyperlane offers several APIs: The Messaging API lets you send arbitrary bytes from a sender contract on the origin chain to a receiver contract on the destination chain. The accounts API lets senders specify abi-encoded Calls that can be executed from a sender's Interchain Account (ICA) on the destination chain. The Queries API allows you to make remote view calls with built-in callbacks without the need to deploy remote contracts. We built this quickstart with both Hardhat and Foundry in mind, so feel free to jump to the relevant sections.
 
 ## Setup
 
