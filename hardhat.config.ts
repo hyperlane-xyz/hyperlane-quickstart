@@ -25,7 +25,7 @@ const hyperlaneCoreAddresses = HyperlaneCoreAddresses as Record<string, any>;
 //   passphrase: "",
 // }
 // ... or a direct private key
-const accounts = ["901ea2e6e326628f82740869bebcb38b7d60349bcba1840763c01e9198af4678"];
+const accounts = ["YOUR PRIVATE KEY"];
 
 const config: HardhatUserConfig = {
   solidity: "0.8.17",
@@ -100,7 +100,7 @@ task("send-message", "sends a message")
       messageBody,
       {
         // Increase the gas limit by 1.5x - there has been some inconsistency
-        // in Goerli estimated gas.
+        // in estimated gas, e.g. with the default public Goerli provider.
         gasLimit: estimatedGas.mul(15).div(10),
       }
     );
