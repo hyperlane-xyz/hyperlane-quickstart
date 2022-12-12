@@ -25,7 +25,7 @@ const hyperlaneCoreAddresses = HyperlaneCoreAddresses as Record<string, any>;
 //   passphrase: "",
 // }
 // ... or a direct private key
-const accounts = ["YOUR PRIVATE KEY"];
+const accounts = ["901ea2e6e326628f82740869bebcb38b7d60349bcba1840763c01e9198af4678"];
 
 const config: HardhatUserConfig = {
   solidity: "0.8.17",
@@ -85,10 +85,24 @@ task("send-message", "sends a message")
       `Sending message "${taskArgs.message}" from ${hre.network.name} to ${taskArgs.remote}`
     );
 
+    const recipientBytes32 = utils.addressToBytes32(recipient);
+    const messageBody = hre.ethers.utils.arrayify(hre.ethers.utils.toUtf8Bytes(taskArgs.message));
+
+    const estimatedGas = await outbox.estimateGas.dispatch(
+      remoteDomain,
+      recipientBytes32,
+      messageBody,
+    );
+
     const tx = await outbox.dispatch(
       remoteDomain,
-      utils.addressToBytes32(recipient),
-      hre.ethers.utils.arrayify(hre.ethers.utils.toUtf8Bytes(taskArgs.message))
+      recipientBytes32,
+      messageBody,
+      {
+        // Increase the gas limit by 1.5x - there has been some inconsistency
+        // in Goerli estimated gas.
+        gasLimit: estimatedGas.mul(15).div(10),
+      }
     );
 
     await tx.wait();
