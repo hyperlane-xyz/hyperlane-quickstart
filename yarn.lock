@@ -356,33 +356,33 @@
   resolved "https://registry.yarnpkg.com/@hyperlane-xyz/celo-ethers-provider/-/celo-ethers-provider-0.1.1.tgz#596dbf180cd476781e8d3bdd9ba595e7438563f0"
   integrity sha512-Kl+qV4J+5PGwFN+dCQ+bu42y5FXkvQKDuZVLRKehk/L6/Otj+UO0PL+U532Y3/RaWH0xtpsImONfL7+edzOFtw==
 
-"@hyperlane-xyz/core@0.5.3":
-  version "0.5.3"
-  resolved "https://registry.yarnpkg.com/@hyperlane-xyz/core/-/core-0.5.3.tgz#42a617cab884fce57f370bd704e07807b8ad506c"
-  integrity sha512-Jtc6F8pA6N41ijmEIzh0KQcszE47p18nnPTMm1V9eGCSZhNlybX0zDFVp3uRF3W233a3x7y4K5Xkyn/9cr4ugA==
+"@hyperlane-xyz/core@0.5.6":
+  version "0.5.6"
+  resolved "https://registry.yarnpkg.com/@hyperlane-xyz/core/-/core-0.5.6.tgz#0b1c7b064007feb2f75f04d88771a038e15e64ed"
+  integrity sha512-TK0qZ+MImiEN/jWXthT6juOhoqgnmPqjaozv3TO8cmTrfQt2UaN76SKUwX58jCEcxs/stqwT9o4eZuDR3yW0pQ==
   dependencies:
-    "@hyperlane-xyz/utils" "0.5.3"
+    "@hyperlane-xyz/utils" "0.5.6"
     "@openzeppelin/contracts" "^4.6.0"
     "@openzeppelin/contracts-upgradeable" "^4.6.0"
 
-"@hyperlane-xyz/sdk@^0.5.3":
-  version "0.5.3"
-  resolved "https://registry.yarnpkg.com/@hyperlane-xyz/sdk/-/sdk-0.5.3.tgz#4705d014c72d4ed91cf5cff4f721aea14a09596e"
-  integrity sha512-MQMpAQpE72xyjZc3uzHpUZlv1S8sVRO5OR2SU1X7/O3LeD6J6Tyn5yIEQ9FNDSYWFHxDUBDk1l1ysQ6qMSr4Cg==
+"@hyperlane-xyz/sdk@^0.5.6":
+  version "0.5.6"
+  resolved "https://registry.yarnpkg.com/@hyperlane-xyz/sdk/-/sdk-0.5.6.tgz#7af9e06180de2731bdfb3efef6ef367debebc55b"
+  integrity sha512-zsw71f3nTuegaszsoe8hzKBheaZYuoWW38rAwtaNAgkXfC8LSwcODFWU8/HtHLgxpOlLQTWeLgZMU+tHTip/7A==
   dependencies:
     "@hyperlane-xyz/celo-ethers-provider" "^0.1.1"
-    "@hyperlane-xyz/core" "0.5.3"
-    "@hyperlane-xyz/utils" "0.5.3"
+    "@hyperlane-xyz/core" "0.5.6"
+    "@hyperlane-xyz/utils" "0.5.6"
     "@types/debug" "^4.1.7"
     coingecko-api "^1.0.10"
     cross-fetch "^3.1.5"
     debug "^4.3.4"
     ethers "^5.6.8"
 
-"@hyperlane-xyz/utils@0.5.3":
-  version "0.5.3"
-  resolved "https://registry.yarnpkg.com/@hyperlane-xyz/utils/-/utils-0.5.3.tgz#367fd3e2c89d765b7bb873160bcec43eda2c6a42"
-  integrity sha512-LzfHqdzAeBboRGq0Md4/8mFNATgsf+ChJLKW61WbYtkMRNE+7evroA6/pVYiLc4q3fVtuDIkJo+UIkN8KrEa9A==
+"@hyperlane-xyz/utils@0.5.6":
+  version "0.5.6"
+  resolved "https://registry.yarnpkg.com/@hyperlane-xyz/utils/-/utils-0.5.6.tgz#3874a9497c493537c41d116e93fef27e15d3d97b"
+  integrity sha512-ud4j33yKSAzo0Od5mqIOnC+3iHOnH3BGOFE7dABz8LMOt6Ettx8N/PC9Ou3LHdiYNc9e4CHfbv7+G1Z6POKHEQ==
   dependencies:
     ethers "^5.6.8"
 
