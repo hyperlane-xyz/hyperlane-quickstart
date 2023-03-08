@@ -136,7 +136,7 @@ We can deploy it with:
 $ yarn hardhat deploy-reader --network goerli
 ```
 
-Once deployed, you can have the contract make a query to read a remote owner. In this case, you can read the owner of a deployed `Ownee` contract above:
+Once deployed, you can have the contract make a query to read a remote owner. In this case, you can read the owner of a deployed `Owner` contract above:
 
 ```shell
 $ yarn hardhat read-remote-owner  --reader "READER_ADDRESS" --remote fuji --target "OWNEE_ADDRESS" --network goerli
