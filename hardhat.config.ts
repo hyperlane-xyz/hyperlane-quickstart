@@ -1,8 +1,6 @@
 import {
-  chainConnectionConfigs,
+  chainMetadata,
   ChainName,
-  ChainNameToDomainId,
-  DomainIdToChainName,
   hyperlaneCoreAddresses as HyperlaneCoreAddresses,
   MultiProvider,
   objMap,
@@ -12,9 +10,11 @@ import { InterchainAccountRouter__factory } from "@hyperlane-xyz/core";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomiclabs/hardhat-etherscan";
 import { HardhatUserConfig, task, types } from "hardhat/config";
+import { ethers, Event } from "ethers";
+import { Log } from "@ethersproject/abstract-provider";
 
 // TODO loosen hyperlaneCoreAddresses type in SDK to work with ChainName keys
-const hyperlaneCoreAddresses = HyperlaneCoreAddresses as Record<string, any>;
+const hyperlaneCoreAddresses = HyperlaneCoreAddresses;
 
 // Use mnemonic ...
 // const accounts = {
@@ -29,9 +29,9 @@ const accounts = ["YOUR PRIVATE KEY"];
 
 const config: HardhatUserConfig = {
   solidity: "0.8.17",
-  networks: objMap(chainConnectionConfigs, (_chain, cc) => ({
+  networks: objMap(chainMetadata, (_chain, cc) => ({
     // @ts-ignore
-    url: cc.provider.connection.url,
+    url: cc.publicRpcUrls[0].http,
     accounts,
   })),
   etherscan: {
@@ -48,10 +48,15 @@ const config: HardhatUserConfig = {
   },
 };
 
-const multiProvider = new MultiProvider(chainConnectionConfigs);
+const multiProvider = new MultiProvider();
 
-const OUTBOX_ABI = [
-  "function dispatch(uint32 destinationDomain, bytes32 recipient, bytes calldata message) returns (uint256)",
+const MAILBOX_ABI = [
+  "function dispatch(uint32 destinationDomain, bytes32 recipient, bytes calldata message) returns (bytes32)",
+  "event DispatchId(bytes32 indexed messageId)",
+];
+const INTERCHAIN_GAS_PAYMASTER_ABI = [
+  "function payForGas(bytes32 _messageId, uint32 _destinationDomain, uint256 _gasAmount, address _refundAddress) payable",
+  "function quoteGasPayment(uint32 _destinationDomain, uint256 _gasAmount) public view returns (uint256)",
 ];
 const INTERCHAIN_ACCOUNT_ROUTER_ABI = [
   "function dispatch(uint32 _destinationDomain, (address, bytes)[] calldata calls)",
@@ -60,8 +65,12 @@ const TESTRECIPIENT_ABI = [
   "function fooBar(uint256 amount, string calldata message)",
 ];
 
-const INTERCHAIN_ACCOUNT_ROUTER = "0xc011170d9795a7a2d065E384EAd1CA3394A7d35E";
+const INTERCHAIN_ACCOUNT_ROUTER = "0xc61Bbf8eAb0b748Ecb532A7ffC49Ab7ca6D3a39D";
 const INTERCHAIN_QUERY_ROUTER = "0x6141e7E7fA2c1beB8be030B0a7DB4b8A10c7c3cd";
+
+// A global constant for simplicity
+// This is the amount of gas you will be paying for for processing of a message on the destination
+const DESTINATIONGASAMOUNT = 1000000;
 
 task("send-message", "sends a message")
   .addParam(
@@ -74,13 +83,14 @@ task("send-message", "sends a message")
   .addParam("message", "the message you want to send", "Hello World")
   .setAction(async (taskArgs, hre) => {
     const signer = (await hre.ethers.getSigners())[0];
-    const recipient = "0xBC3cFeca7Df5A45d61BC60E7898E63670e1654aE";
+    const recipient = "0x36FdA966CfffF8a9Cdc814f546db0e6378bFef35";
     const origin = hre.network.name as ChainName;
     const remote = taskArgs.remote as ChainName;
-    const remoteDomain = ChainNameToDomainId[remote];
-    const outboxC = hyperlaneCoreAddresses[origin].outbox;
+    const remoteDomain = multiProvider.getDomainId(remote);
+    const outboxC = hyperlaneCoreAddresses[origin].mailbox;
+    const igpAddress = hyperlaneCoreAddresses[origin].interchainGasPaymaster;
 
-    const outbox = new hre.ethers.Contract(outboxC, OUTBOX_ABI, signer);
+    const outbox = new hre.ethers.Contract(outboxC, MAILBOX_ABI, signer);
     console.log(
       `Sending message "${taskArgs.message}" from ${hre.network.name} to ${taskArgs.remote}`
     );
@@ -91,14 +101,37 @@ task("send-message", "sends a message")
       hre.ethers.utils.arrayify(hre.ethers.utils.toUtf8Bytes(taskArgs.message))
     );
 
-    await tx.wait();
+    const receipt = await tx.wait();
     console.log(
-      `Send message at txHash ${tx.hash}. Check the explorer at https://explorer.hyperlane.xyz`
+      `Send message at txHash ${tx.hash}. Check the explorer at https://explorer.hyperlane.xyz/?search=${tx.hash}`
     );
 
-    const recipientUrl = await multiProvider
-      .getChainConnection(remote)
-      .getAddressUrl(recipient);
+    console.log(
+      "Pay for processing of the message via the InterchainGasPaymaster"
+    );
+    const messageId = getMessageIdFromDispatchLogs(receipt.logs);
+    const igp = new hre.ethers.Contract(
+      igpAddress,
+      INTERCHAIN_GAS_PAYMASTER_ABI,
+      signer
+    );
+    const gasPayment = await igp.quoteGasPayment(
+      remoteDomain,
+      DESTINATIONGASAMOUNT
+    );
+    const igpTx = await igp.payForGas(
+      messageId,
+      remoteDomain,
+      DESTINATIONGASAMOUNT,
+      await signer.getAddress(),
+      { value: gasPayment }
+    );
+    await igpTx.wait();
+
+    const recipientUrl = await multiProvider.tryGetExplorerAddressUrl(
+      remote,
+      recipient
+    );
     console.log(
       `Check out the explorer page for recipient ${recipientUrl}#events`
     );
@@ -119,7 +152,7 @@ task("make-ica-call", "Makes an Interchain Account call")
     const interchainAccountAddress =
       "0x28DB114018576cF6c9A523C17903455A161d18C4";
     const remote = taskArgs.remote as ChainName;
-    const remoteDomain = ChainNameToDomainId[remote];
+    const remoteDomain = multiProvider.getDomainId(remote);
     // Arbitrary values
     const amount = 42;
 
@@ -144,15 +177,39 @@ task("make-ica-call", "Makes an Interchain Account call")
     const tx = await interchainAccountRouter.dispatch(remoteDomain, [
       [recipient, calldata],
     ]);
+
+    const receipt = await tx.wait();
     console.log(
-      `Sent message at txHash ${tx.hash}. Check the explorer at https://explorer.hyperlane.xyz`
+      `Sent message at txHash ${tx.hash}. Check the explorer at https://explorer.hyperlane.xyz/?search=${tx.hash}`
     );
 
-    await tx.wait();
+    console.log(
+      "Pay for processing of the message via the InterchainGasPaymaster"
+    );
+    const messageId = getMessageIdFromDispatchLogs(receipt.logs);
+    const igpAddress = hyperlaneCoreAddresses[origin].interchainGasPaymaster;
+    const igp = new hre.ethers.Contract(
+      igpAddress,
+      INTERCHAIN_GAS_PAYMASTER_ABI,
+      signer
+    );
+    const gasPayment = await igp.quoteGasPayment(
+      remoteDomain,
+      DESTINATIONGASAMOUNT
+    );
+    const igpTx = await igp.payForGas(
+      messageId,
+      remoteDomain,
+      DESTINATIONGASAMOUNT,
+      await signer.getAddress(),
+      { value: gasPayment }
+    );
+    await igpTx.wait();
 
-    const recipientUrl = await multiProvider
-      .getChainConnection(remote)
-      .getAddressUrl(recipient);
+    const recipientUrl = await multiProvider.tryGetExplorerAddressUrl(
+      remote,
+      recipient
+    );
     console.log(
       `Check out the explorer page for recipient ${recipientUrl}#events`
     );
@@ -164,7 +221,7 @@ task(
 ).setAction(async (taskArgs, hre) => {
   console.log(`Deploying HyperlaneMessageSender on ${hre.network.name}`);
   const origin = hre.network.name as ChainName;
-  const outbox = hyperlaneCoreAddresses[origin].outbox;
+  const outbox = hyperlaneCoreAddresses[origin].mailbox;
 
   const factory = await hre.ethers.getContractFactory("HyperlaneMessageSender");
 
@@ -182,33 +239,26 @@ task(
 });
 
 task("deploy-message-receiver", "deploys the HyperlaneMessageReceiver contract")
-  .addParam(
-    "origin",
-    "the name of the origin chain",
-    undefined,
-    types.string,
-    false
-  )
   .setAction(async (taskArgs, hre) => {
     console.log(
-      `Deploying HyperlaneMessageReceiver on ${hre.network.name} for messages from ${taskArgs.origin}`
+      `Deploying HyperlaneMessageReceiver on ${hre.network.name} for messages`
     );
     const remote = hre.network.name as ChainName;
-    const inbox = hyperlaneCoreAddresses[remote].inboxes[taskArgs.origin];
+    const mailbox = hyperlaneCoreAddresses[remote].mailbox;
 
     const factory = await hre.ethers.getContractFactory(
       "HyperlaneMessageReceiver"
     );
 
-    const contract = await factory.deploy(inbox);
+    const contract = await factory.deploy(mailbox);
     await contract.deployTransaction.wait();
 
     console.log(
-      `Deployed HyperlaneMessageReceiver to ${contract.address} on ${hre.network.name} listening to the outbox on ${taskArgs.origin} with transaction ${contract.deployTransaction.hash}`
+      `Deployed HyperlaneMessageReceiver to ${contract.address} on ${hre.network.name} with transaction ${contract.deployTransaction.hash}`
     );
     console.log(`You can verify the contracts with:`);
     console.log(
-      `$ yarn hardhat verify --network ${hre.network.name} ${contract.address} ${inbox}`
+      `$ yarn hardhat verify --network ${hre.network.name} ${contract.address} ${mailbox}`
     );
   });
 
@@ -241,7 +291,7 @@ task(
   .setAction(async (taskArgs, hre) => {
     const signer = (await hre.ethers.getSigners())[0];
     const remote = taskArgs.remote as ChainName;
-    const remoteDomain = ChainNameToDomainId[remote];
+    const remoteDomain = multiProvider.getDomainId(remote);
     const senderFactory = await hre.ethers.getContractFactory(
       "HyperlaneMessageSender"
     );
@@ -256,17 +306,39 @@ task(
       utils.addressToBytes32(taskArgs.receiver),
       taskArgs.message
     );
-    await tx.wait();
 
+    const receipt = await tx.wait();
     console.log(
-      `Send message at txHash ${tx.hash}. Check the explorer at https://explorer.hyperlane.xyz`
+      `Send message at txHash ${tx.hash}. Check the explorer at https://explorer.hyperlane.xyz/?search=${tx.hash}`
     );
 
-    await tx.wait();
+    console.log(
+      "Pay for processing of the message via the InterchainGasPaymaster"
+    );
+    const messageId = getMessageIdFromDispatchLogs(receipt.logs);
+    const igpAddress = hyperlaneCoreAddresses[hre.network.name].interchainGasPaymaster;
+    const igp = new hre.ethers.Contract(
+      igpAddress,
+      INTERCHAIN_GAS_PAYMASTER_ABI,
+      signer
+    );
+    const gasPayment = await igp.quoteGasPayment(
+      remoteDomain,
+      DESTINATIONGASAMOUNT
+    );
+    const igpTx = await igp.payForGas(
+      messageId,
+      remoteDomain,
+      DESTINATIONGASAMOUNT,
+      await signer.getAddress(),
+      { value: gasPayment }
+    );
+    await igpTx.wait();
 
-    const recipientUrl = await multiProvider
-      .getChainConnection(remote)
-      .getAddressUrl(taskArgs.receiver);
+    const recipientUrl = await multiProvider.tryGetExplorerAddressUrl(
+      remote,
+      taskArgs.receiver
+    );
     console.log(
       `Check out the explorer page for receiver ${recipientUrl}#events`
     );
@@ -306,8 +378,8 @@ task(
       INTERCHAIN_ACCOUNT_ROUTER,
       hre.ethers.getDefaultProvider()
     );
-    const originDomain = ChainNameToDomainId[hre.network.name as ChainName];
-    const ica = await router.getInterchainAccount(
+    const originDomain = multiProvider.getDomainId(hre.network.name);
+    const ica = await router["getInterchainAccount(uint32,address)"](
       originDomain,
       taskArgs.address
     );
@@ -365,7 +437,7 @@ task(
   .setAction(async function (taskArgs, hre) {
     const factory = await hre.ethers.getContractFactory("Owner");
     const owner = await factory.attach(taskArgs.owner);
-    const destinationDomain = ChainNameToDomainId[taskArgs.remote as ChainName];
+    const destinationDomain = multiProvider.getDomainId(taskArgs.remote);
     const tx = await owner.setRemoteFee(
       destinationDomain,
       taskArgs.ownee,
@@ -433,7 +505,7 @@ task("read-remote-owner", "Allows readRemoteOwner on a OwnerReader contract")
   .setAction(async function (taskArgs, hre) {
     const factory = await hre.ethers.getContractFactory("OwnerReader");
     const reader = await factory.attach(taskArgs.reader);
-    const destinationDomain = ChainNameToDomainId[taskArgs.remote as ChainName];
+    const destinationDomain = multiProvider.getDomainId(taskArgs.remote);
 
     const tx = await reader.readRemoteOwner(destinationDomain, taskArgs.target);
     await tx.wait();
@@ -444,7 +516,13 @@ task("read-remote-owner", "Allows readRemoteOwner on a OwnerReader contract")
   });
 
 task("get-query-result", "Reads the queryResult on an OwnerReader")
-  .addParam("reader", "OwnerReader address on the origin chain", undefined, types.string, false)
+  .addParam(
+    "reader",
+    "OwnerReader address on the origin chain",
+    undefined,
+    types.string,
+    false
+  )
   .setAction(async (taskArgs, hre) => {
     const factory = await hre.ethers.getContractFactory("OwnerReader");
     const reader = factory.attach(taskArgs.reader);
@@ -452,10 +530,23 @@ task("get-query-result", "Reads the queryResult on an OwnerReader")
     const lastOwner = await reader.lastOwner();
     const lastTarget = await reader.lastTarget();
     const lastQueryDomainNumber = await reader.lastDomain();
-    const lastQueryDomain = DomainIdToChainName[lastQueryDomainNumber]
+    const lastQueryDomain = multiProvider.getDomainId(lastQueryDomainNumber);
 
     console.info(
       `The currently recorded query result on ${taskArgs.reader} is that the owner of ${lastTarget} is ${lastOwner} on ${lastQueryDomain}`
     );
   });
 export default config;
+
+function getMessageIdFromDispatchLogs(logs: Log[]) {
+  const mailboxInterface = new ethers.utils.Interface(MAILBOX_ABI);
+  for (const log of logs) {
+    try {
+      const parsedLog = mailboxInterface.parseLog(log);
+      if (parsedLog.name === "DispatchId") {
+        return parsedLog.args.messageId;
+      }
+    } catch (e) {}
+  }
+  return undefined;
+}

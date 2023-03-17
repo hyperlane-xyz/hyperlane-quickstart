@@ -4,17 +4,17 @@ pragma solidity ^0.8.9;
 // Uncomment this line to use console.log
 // import "hardhat/console.sol";
 
-import "@hyperlane-xyz/core/interfaces/IInbox.sol";
+import "@hyperlane-xyz/core/interfaces/IMailbox.sol";
 
 contract HyperlaneMessageReceiver {
-    IInbox inbox;
+    IMailbox inbox;
     bytes32 public lastSender;
     string public lastMessage;
 
     event ReceivedMessage(uint32 origin, bytes32 sender, bytes message);
 
     constructor(address _inbox) {
-        inbox = IInbox(_inbox);
+        inbox = IMailbox(_inbox);
     }
 
     function handle(

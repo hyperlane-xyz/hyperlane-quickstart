@@ -2,8 +2,6 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { utils } from "@hyperlane-xyz/utils";
 import {
-  MockInbox__factory,
-  MockOutbox__factory,
   TestRecipient__factory,
 } from "@hyperlane-xyz/core";
 import { MockInterchainAccountRouter, Ownee, Owner } from "../typechain-types";
