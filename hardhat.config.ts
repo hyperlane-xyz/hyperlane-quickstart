@@ -95,10 +95,24 @@ task("send-message", "sends a message")
       `Sending message "${taskArgs.message}" from ${hre.network.name} to ${taskArgs.remote}`
     );
 
+    const recipientBytes32 = utils.addressToBytes32(recipient);
+    const messageBody = hre.ethers.utils.arrayify(hre.ethers.utils.toUtf8Bytes(taskArgs.message));
+
+    const estimatedGas = await outbox.estimateGas.dispatch(
+      remoteDomain,
+      recipientBytes32,
+      messageBody,
+    );
+
     const tx = await outbox.dispatch(
       remoteDomain,
-      utils.addressToBytes32(recipient),
-      hre.ethers.utils.arrayify(hre.ethers.utils.toUtf8Bytes(taskArgs.message))
+      recipientBytes32,
+      messageBody,
+      {
+        // Increase the gas limit by 1.5x - there has been some inconsistency
+        // in estimated gas, e.g. with the default public Goerli provider.
+        gasLimit: estimatedGas.mul(15).div(10),
+      }
     );
 
     const receipt = await tx.wait();
